@@ -26,10 +26,22 @@ const PORT = process.env.PORT || 5000;
 app.use(helmet());
 
 // CORS — allow only the frontend origin
-const clientUrl = (process.env.CLIENT_URL || 'http://localhost:5173').trim();
+// Aggressively sanitize the URL to remove any hidden/non-printable characters
+const clientUrl = (process.env.CLIENT_URL || 'http://localhost:5173')
+  .trim()
+  .replace(/[^\x20-\x7E]/g, '')  // Remove any non-printable ASCII characters
+  .replace(/\/+$/, '');           // Remove trailing slashes
+console.log('🌐 CORS origin set to:', JSON.stringify(clientUrl));
 app.use(
   cors({
-    origin: clientUrl,
+    origin: function (origin, callback) {
+      // Allow requests with no origin (server-to-server, curl, etc.)
+      if (!origin) return callback(null, true);
+      if (origin === clientUrl || origin.includes('vercel.app') || origin.includes('localhost')) {
+        return callback(null, true);
+      }
+      callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
